@@ -16,14 +16,15 @@
     <div class="wrapper">
       <header>
         <h1>Scaling Meteor</h1>
-        <p>My experiences scaling up Pegleg (pegleg.it), a Meteor project, beyond a single instance</p>
+        <p>My experiences scaling Pegleg (pegleg.it), a Meteor project, beyond a single instance</p>
 
 
         <p class="view"><a href="https://github.com/fightingtheboss">View My GitHub Profile</a></p>
 
       </header>
       <section>
-        <h3>It's Good To Have Goals</h3>
+        <h3>
+<a name="its-good-to-have-goals" class="anchor" href="#its-good-to-have-goals"><span class="octicon octicon-link"></span></a>It's Good To Have Goals</h3>
 
 <p>I had three main objectives when scaling Pegleg to multiple instances:</p>
 
@@ -33,7 +34,8 @@
 <li>Low cost</li>
 </ol><p>I used these three criteria to evaluate the suitability of each solution for my purposes. Because of a lack of tools and time, I didn't load test any of these scenarios scientifically, so the decision on criteria 1 was made anecdotally (suitable enough for a small side-project like Pegleg). I'll circle back to load testing near the end.</p>
 
-<h3>Back to the Future (aka TL;DR)</h3>
+<h3>
+<a name="back-to-the-future-aka-tldr" class="anchor" href="#back-to-the-future-aka-tldr"><span class="octicon octicon-link"></span></a>Back to the Future (aka TL;DR)</h3>
 
 <p>Going from zero to hero took a few iterations (and a lot of research and trial-and-error). I ended up with three different deployment strategies for scaling Meteor:</p>
 
@@ -43,48 +45,128 @@
 <li>Custom deployment on private VPS</li>
 </ol><p>After running on the manual AWS setup for a month, I ultimately ended up going with the private VPS option for simplicity and cost reasons that I'll get into below.</p>
 
-<h3>Understanding The Problem</h3>
+<h3>
+<a name="understanding-the-problem" class="anchor" href="#understanding-the-problem"><span class="octicon octicon-link"></span></a>Understanding The Problem</h3>
 
 <p>The free hosting provided by Meteor at meteor.com is great for deploying prototypes and toys but if your traffic starts to ramp up, you'll eventually have to move on to your own infrastructure. Given that deploying to meteor.com is basically a black box, there's some background information you need to deploy a Meteor app to your own stack:</p>
 
-<ul>
-<li>Node
+<h4>
+<a name="node" class="anchor" href="#node"><span class="octicon octicon-link"></span></a>Node</h4>
+
+<p>As of Meteor 0.6.3.1, the current compatible version of node is <strong>0.8.x</strong>, so this is what you'll need to install on your server(s).</p>
 
 <ul>
-<li>Compatible version</li>
-<li>Memory footprint</li>
-</ul>
+<li>The Meteor team is working on making Meteor compatible with the 0.10.x version of Node. There's a mention <a href="https://github.com/meteor/meteor/issues/859">here</a> and you can take a look at the code on the <a href="https://github.com/meteor/meteor/tree/node-0.10">node-0.10 branch</a>.</li>
+<li>
+<a href="https://launchpad.net/%7Echris-lea/+archive/node.js-legacy">Chris Lea maintains a legacy PPA</a> for installing the 0.8.x version of Node using apt-get</li>
+</ul><h4>
+<a name="mongodb" class="anchor" href="#mongodb"><span class="octicon octicon-link"></span></a>MongoDB</h4>
+
+<h5>
+<a name="backing-up-your-data" class="anchor" href="#backing-up-your-data"><span class="octicon octicon-link"></span></a>Backing up your data</h5>
+
+<p>You'll need to back up the data from the DB on your meteor.com site</p>
+
+<ul>
+<li>Oli Evans made a dead simple bash script to help you called <a href="https://gist.github.com/olizilla/5209369">Meteor Dump</a>
 </li>
-<li>MongoDB
+</ul><h5>
+<a name="hosting-your-data" class="anchor" href="#hosting-your-data"><span class="octicon octicon-link"></span></a>Hosting your data</h5>
+
+<p>Meteor uses <a href="http://www.mongohq.com">MongoHQ</a> and unless you have some special reason to run your own MongoDB server, I highly recommend doing the same. The sandbox account gives you 512MB of storage for free and the prices are reasonable beyond that.</p>
 
 <ul>
-<li>Backing up your data</li>
-<li>Hosting your data</li>
-</ul>
-</li>
-<li>Meteor (and Meteorite)
+<li>It's super simple to <a href="https://groups.google.com/d/msg/meteor-talk/KvDWrqZpy-w/5-xrKOjHVFkJ">copy your data directly across to your new MongoHQ database</a> once you've created an account</li>
+</ul><h4>
+<a name="meteor-and-meteorite" class="anchor" href="#meteor-and-meteorite"><span class="octicon octicon-link"></span></a>Meteor (and Meteorite)</h4>
+
+<h5>
+<a name="bundling-your-app" class="anchor" href="#bundling-your-app"><span class="octicon octicon-link"></span></a>Bundling your app</h5>
+
+<p>You'll need to bundle your app either before or during deploy using <code>meteor bundle</code> (or <code>mrt bundle</code>)</p>
 
 <ul>
-<li>Building your app</li>
-<li>Bundles</li>
-</ul>
+<li>This creates a node-friendly bundle that you can run with node directly (i.e. <code>node bundle/main.js</code>)</li>
+<li>If you create your bundle locally and then upload to your server, you'll have to be careful to rebuild your node dependencies in the server environment, <a href="http://docs.meteor.com/#deploying">as noted in the Meteor docs in the red text under <em>Running your own infrastructure</em></a>
 </li>
-<li>Load Balancing &amp; Session Affinity</li>
-</ul><h2>Background</h2>
+</ul><h5>
+<a name="packages" class="anchor" href="#packages"><span class="octicon octicon-link"></span></a>Packages</h5>
 
-<h3>Beginnings</h3>
+<p>If you add packages using Meteorite locally then you'll want Meteorite on the server as well</p>
+
+<ul>
+<li>This is bound to change pretty soon as Meteor (as of 0.6.0) now handles its own versioning and codifies package management a bit more and <a href="https://groups.google.com/forum/?fromgroups#!topic/meteor-talk/1RwTlcH0Wzg">Meteorite is soon to change to catch up</a>.</li>
+</ul><h5>
+<a name="environment-variables" class="anchor" href="#environment-variables"><span class="octicon octicon-link"></span></a>Environment Variables</h5>
+
+<p>Meteor expects certain environment variables are set when the app is started:      </p>
+
+<p><code>MONGO_URL</code><br>
+The URL to your MongoDB instance using the mongodb:// protocol.</p>
+
+<p><code>ROOT_URL</code><br>
+If you serve your site from a domain other than localhost, you'll need to set this so that URLs within your app point to the right place (<a href="http://docs.meteor.com/#meteor_absoluteurl">Meteor.absoluteUrl</a> depends on this variable being set).</p>
+
+<p><code>PORT</code><br>
+The port the app server should run on. This will vary depending on your environment and setup as we'll discuss below.</p>
+
+<p>Other packages may require specific environment variables (e.g. MAIL_URL).</p>
+
+<h4>
+<a name="load-balancing--session-affinity" class="anchor" href="#load-balancing--session-affinity"><span class="octicon octicon-link"></span></a>Load Balancing &amp; Session Affinity</h4>
+
+<p>When you're running more than one instance of your app, you'll need to spread the requests across them using a load balancer.</p>
+
+<ul>
+<li>Because of the way Meteor works, you'll need a load balancer that supports "session affinity" or "sticky sessions". <a href="http://stackoverflow.com/a/13716069/2202261">Read Matt DeBergalis' succinct explanation.</a>
+</li>
+<li>A secondary problem related to load balancing is that there will be a delay when updating clients connected to instances other than the one where writes were made (this is explained by Matt DeBergalis in the above link as well). <a href="https://github.com/arunoda/meteor-cluster">Meteor Cluster</a> is an elegant workaround using Redis if that is a deal-breaker for your app. In the longer term, <a href="https://trello.com/card/multitier-server-architecture-support-very-large-numbers-of-simultaneous-clients/508721606e02bb9d570016ae/46">this will be addressed in future versions of Meteor</a>.</li>
+</ul><p>Some of the above is covered in the Meteor docs under <a href="http://docs.meteor.com/#deploying">"Running on your own infrastructure"</a>, which is a good thing to read before continuing.</p>
+
+<h3>
+<a name="manual-deploy-to-aws" class="anchor" href="#manual-deploy-to-aws"><span class="octicon octicon-link"></span></a>Manual Deploy to AWS</h3>
+
+<p>Started off with <a href="https://github.com/netmute/meteor.sh">Meteor.sh</a> and modified it to handle multiple instances. This requires installing the AWS API Tools (no small feat given their lacklustre documentation).</p>
+
+<p>TODO: Fork the Meteor.sh repo, make the changes and add documentation about AWS tools, add link here</p>
+
+<p>Since the bash script ran the deploy in sequence rather than in parallel, it quickly became unacceptably long to deploy to many instances. I needed a parallelized and easily customizable deploy process so I turned to the tool I have the most experience with: Capistrano.</p>
+
+<p>Capistrano is a Ruby-based deploy tool that is generally used with Rails. It parallelizes deploys to multiple servers and gives you complex control over how the deploy is performed and what you can do both locally and on the server.</p>
+
+<p>TODO: Add gist of the deploy script for AWS</p>
+
+<h3>
+<a name="aws-elastic-beanstalk-deployment" class="anchor" href="#aws-elastic-beanstalk-deployment"><span class="octicon octicon-link"></span></a>AWS Elastic Beanstalk Deployment</h3>
+
+<p><a href="https://gist.github.com/fightingtheboss/5432059">EB Configuration File</a></p>
+
+<h3>
+<a name="custom-deployment-on-private-vps" class="anchor" href="#custom-deployment-on-private-vps"><span class="octicon octicon-link"></span></a>Custom Deployment on Private VPS</h3>
+
+<p>TODO: Discuss topography (HAProxy -&gt; nginx -&gt; node)
+TODO: Add gist of the deploy script for AWS</p>
+
+<h2>
+<a name="background" class="anchor" href="#background"><span class="octicon octicon-link"></span></a>Background</h2>
+
+<h3>
+<a name="beginnings" class="anchor" href="#beginnings"><span class="octicon octicon-link"></span></a>Beginnings</h3>
 
 <p>I built <a href="http://pegleg.it">Pegleg</a> back in January as a side-project to learn Meteor and to help friends and film-buffs find full-length movies on YouTube by working together. Initially I was using the generously provided and dead simple free meteor.com hosting, which is the perfect platform for getting your Meteor prototypes some real-world users on the web. With a few blog posts about it and word of mouth, it slowly gained a bit of popularity.</p>
 
-<h3>Blow-Up</h3>
+<h3>
+<a name="blow-up" class="anchor" href="#blow-up"><span class="octicon octicon-link"></span></a>Blow-Up</h3>
 
 <p>After being up and slowly improved for about six or eight weeks, the link to Pegleg was posted on Hacker News on a Friday morning and made it to the home page. After an initial bout of euphoria about having hit on the holy grail of an HN home page mention, I was quickly hit with the reality of what that means. The free hosting provided by Meteor wasn't designed to handle that kind of load and the site slowed to an unusable crawl.</p>
 
-<h3>Short-Circuit</h3>
+<h3>
+<a name="short-circuit" class="anchor" href="#short-circuit"><span class="octicon octicon-link"></span></a>Short-Circuit</h3>
 
 <p>After trying to resolve things with the gracious and patient help of Kara and David at Meteor one thing became certain: I needed to scale off of the Meteor free hosting to meet the needs of the new influx of users. This was easier said than done because there wasn't much in the way of documentation on that front. David pointed me to <a href="http://www.ripariandata.com/blog/creating-an-aws-elastic-load-balancer">this blog post about load balancing on AWS</a> to get me started and that's where we'll begin this journey.</p>
 
-<h3>Batteries Not Included</h3>
+<h3>
+<a name="batteries-not-included" class="anchor" href="#batteries-not-included"><span class="octicon octicon-link"></span></a>Batteries Not Included</h3>
 
 <p>As a caveat, I'm certainly not a sys-ops master, and I often find jockeying servers and worrying about deployments to be a tedious necessary evil to get my sites online. This situation forced me to learn a bunch of the stuff I'd been wilfully ignoring for as long as I could. If you are great at this stuff I'd love to hear feedback on better ways to approach this.</p>
       </section>
